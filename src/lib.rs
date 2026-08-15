@@ -89,6 +89,9 @@ impl Synthesizer for UnsupportedSynthesizer {
     fn voices(&self) -> Result<Vec<Voice>> {
         Ok(Vec::new())
     }
+    fn default_voice(&self, _language: &str) -> Option<Voice> {
+        None
+    }
     fn status(&self) -> SynthesizerStatus {
         SynthesizerStatus {
             available: false,

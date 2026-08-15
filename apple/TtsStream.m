@@ -345,6 +345,16 @@ void tts_stream_list_voices(void *ctx, void (*visit)(void *ctx, const char *iden
     }
 }
 
+/// The voice `tts_stream_start` falls back to for `language` when no voice id
+/// resolves. Calls `visit` once (or never, if the platform has no voice at all).
+void tts_stream_default_voice(const char *language, void *ctx,
+                              void (*visit)(void *ctx, const char *identifier, const char *name,
+                                            const char *language, int32_t quality)) {
+    AVSpeechSynthesisVoice *voice = tts_stream_pick_voice(NULL, language);
+    if (!voice) return;
+    visit(ctx, voice.identifier.UTF8String, voice.name.UTF8String, voice.language.UTF8String, 0);
+}
+
 /// Test/example helper: pump the main run loop for `seconds`. AVSpeechSynthesizer
 /// delivers its buffers via the main queue, which a plain command-line process
 /// (cargo example) has to drain explicitly; a Tauri app's main loop already does.

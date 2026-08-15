@@ -38,6 +38,25 @@ extern "C" {
     ) -> i32;
     fn tts_stream_cancel(job_id: u64);
     fn tts_stream_list_voices(ctx: *mut c_void, visit: VoiceVisitor);
+    fn tts_stream_default_voice(language: *const c_char, ctx: *mut c_void, visit: VoiceVisitor);
+}
+
+/// Visitor that appends every reported voice to the `Vec<Voice>` behind `ctx`.
+unsafe extern "C" fn collect_voice(
+    ctx: *mut c_void,
+    identifier: *const c_char,
+    name: *const c_char,
+    language: *const c_char,
+    _quality: i32,
+) {
+    // SAFETY: `ctx` is the `Vec<Voice>` the caller passed, valid for the
+    // duration of the enumerating FFI call.
+    let out = &mut *(ctx as *mut Vec<Voice>);
+    out.push(Voice {
+        id: c_string_arg(identifier),
+        name: c_string_arg(name),
+        language: c_string_arg(language),
+    });
 }
 
 // Start error codes (mirror `TtsStreamStartError` in TtsStream.m).
@@ -171,27 +190,27 @@ impl Synthesizer for AppleSynthesizer {
     }
 
     fn voices(&self) -> crate::Result<Vec<Voice>> {
-        unsafe extern "C" fn visit(
-            ctx: *mut c_void,
-            identifier: *const c_char,
-            name: *const c_char,
-            language: *const c_char,
-            _quality: i32,
-        ) {
-            // SAFETY: `ctx` is the `Vec<Voice>` passed below, valid for the
-            // duration of `tts_stream_list_voices`.
-            let out = &mut *(ctx as *mut Vec<Voice>);
-            out.push(Voice {
-                id: c_string_arg(identifier),
-                name: c_string_arg(name),
-                language: c_string_arg(language),
-            });
-        }
         let mut voices: Vec<Voice> = Vec::new();
         // SAFETY: the visitor only runs during this call and only touches
         // `voices` through the context pointer.
-        unsafe { tts_stream_list_voices(&mut voices as *mut Vec<Voice> as *mut c_void, visit) };
+        unsafe {
+            tts_stream_list_voices(&mut voices as *mut Vec<Voice> as *mut c_void, collect_voice)
+        };
         Ok(voices)
+    }
+
+    fn default_voice(&self, language: &str) -> Option<Voice> {
+        let language = CString::new(language).ok()?;
+        let mut voices: Vec<Voice> = Vec::new();
+        // SAFETY: as in `voices`; `language` outlives the call.
+        unsafe {
+            tts_stream_default_voice(
+                language.as_ptr(),
+                &mut voices as *mut Vec<Voice> as *mut c_void,
+                collect_voice,
+            )
+        };
+        voices.into_iter().next()
     }
 
     fn status(&self) -> SynthesizerStatus {
@@ -227,6 +246,13 @@ mod tests {
         let voices = AppleSynthesizer.voices().unwrap();
         assert!(!voices.is_empty());
         assert!(voices.iter().all(|v| !v.id.is_empty() && !v.language.is_empty()));
+    }
+
+    #[test]
+    fn default_voice_matches_the_language() {
+        let voice = AppleSynthesizer.default_voice("de").expect("a German voice");
+        assert!(voice.language.to_ascii_lowercase().starts_with("de"), "{voice:?}");
+        assert!(AppleSynthesizer.default_voice("en-US").is_some());
     }
 
     #[test]

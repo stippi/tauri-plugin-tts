@@ -101,6 +101,12 @@ pub trait Synthesizer: Send + Sync {
     /// The installed voices. Non-blocking.
     fn voices(&self) -> crate::Result<Vec<Voice>>;
 
+    /// The voice a [`SynthesisRequest`] without a resolvable `voice_id` uses
+    /// for `language` (bare code or full tag) — the platform's preferred
+    /// voice, so hosts can show what will actually be spoken. `None` when
+    /// the platform has no voice at all.
+    fn default_voice(&self, language: &str) -> Option<Voice>;
+
     /// Whether synthesis is available at all. Non-blocking.
     fn status(&self) -> SynthesizerStatus;
 }
