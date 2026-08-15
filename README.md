@@ -4,13 +4,13 @@ Native Text-to-Speech for Tauri 2.x. Delegates to the OS synthesiser on each pla
 
 ## Platform Matrix
 
-| Platform | Engine              | Pause/Resume |
-| -------- | ------------------- | ------------ |
-| Windows  | SAPI                | —            |
-| macOS    | AVSpeechSynthesizer | —            |
-| Linux    | speech-dispatcher   | —            |
-| iOS      | AVSpeechSynthesizer | ✅           |
-| Android  | TextToSpeech        | —            |
+| Platform | Engine              | Pause/Resume | Rust `Synthesizer` |
+| -------- | ------------------- | ------------ | ------------------ |
+| Windows  | SAPI                | —            | —                  |
+| macOS    | AVSpeechSynthesizer | —            | ✅                 |
+| Linux    | speech-dispatcher   | —            | —                  |
+| iOS      | AVSpeechSynthesizer | ✅           | ✅                 |
+| Android  | TextToSpeech        | —            | —                  |
 
 ## Installation
 
@@ -105,6 +105,33 @@ import { pauseSpeaking, resumeSpeaking } from "tauri-plugin-tts-api";
 const { success } = await pauseSpeaking();
 if (success) await resumeSpeaking();
 ```
+
+## Rust API: buffer-producing synthesis
+
+Hosts that own audio output themselves (an app with a Rust playback pipeline)
+can bypass the command layer entirely and get PCM back instead of letting the
+platform play into the device:
+
+```rust
+use tauri_plugin_tts::{SynthesisRequest, Synthesizer, SynthesizerEvent, TtsExt};
+
+let synth = app.synthesizer(); // Arc<dyn Synthesizer> via `.into_arc()`
+let job = synth.synthesize(
+    SynthesisRequest { language: Some("de-DE".into()), ..SynthesisRequest::new("Hallo Welt.") },
+    Box::new(|event| match event {
+        SynthesizerEvent::Audio { samples, sample_rate } => { /* mono f32 */ }
+        SynthesizerEvent::Error(message) => { /* … */ }
+        SynthesizerEvent::Ended => { /* exactly once */ }
+    }),
+)?;
+// job.cancel() aborts early; `synth.voices()` lists installed voices;
+// `synth.status().available` is false on platforms without a binding.
+```
+
+iOS and macOS are backed by `AVSpeechSynthesizer.write(_:toBufferCallback:)`
+(`apple/TtsStream.m`, compiled by `build.rs`). Buffers arrive through the main
+queue, so the process needs a running main run loop — a Tauri app has one.
+`cargo run --example synth_probe -- "Text" de-DE` exercises it on macOS.
 
 ## API Reference
 

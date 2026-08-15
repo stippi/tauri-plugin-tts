@@ -155,7 +155,10 @@ class TtsPlugin: Plugin, AVSpeechSynthesizerDelegate {
         NSLog("[TtsPlugin]   Device: \(UIDevice.current.model)")
         synthesizer.delegate = self
         NSLog("[TtsPlugin]   Synthesizer delegate set")
-        setupAudioSession()
+        // The audio session is configured lazily on the first `speak`/`previewVoice`:
+        // hosts that only use the buffer-producing Rust API (`Synthesizer`) own
+        // their audio session themselves and must not have it reconfigured at
+        // plugin registration.
         setupInterruptionHandling()
         setupLifecycleObservers()
     }
