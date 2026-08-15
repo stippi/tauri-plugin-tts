@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Rust-callable, buffer-producing `Synthesizer` API (`SynthesisRequest`,
+  `SynthesizerEvent::{Audio, Error, Ended}`, `SynthesisJob::cancel`,
+  `voices()`, `default_voice(language)`, `status()`), reachable via
+  `TtsExt::synthesizer()`. iOS and macOS are backed by
+  `AVSpeechSynthesizer.write(_:toBufferCallback:)` in `apple/TtsStream.m`
+  (compiled by `build.rs`); other platforms report `available == false`.
+- `examples/synth_probe.rs` renders a sentence through it on macOS.
+
+### Changed
+
+- The iOS plugin no longer reconfigures the shared `AVAudioSession` when it is
+  registered; the session is set up lazily on the first `speak`/`previewVoice`.
+
 ## [0.1.9] - 2026-04-18
 
 ### Fixed
