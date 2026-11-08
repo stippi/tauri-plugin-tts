@@ -620,7 +620,7 @@ class TtsPlugin: Plugin, AVSpeechSynthesizerDelegate {
 }
 
 @_cdecl("init_plugin_tts")
-func initPlugin() -> Plugin {
+public func initPlugin() -> Plugin {
     return TtsPlugin()
 }
 
